@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "yapeco"
-version = "0.1.0"
+version = "0.1.1"
 description = "Yet Another Python Envvar Config Object"
 authors = ["Michael Lisano <mlisano@protonmail.com>"]
 readme = "README.md"
