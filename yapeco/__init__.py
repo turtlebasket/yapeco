@@ -17,8 +17,7 @@ class BaseEnvironment:
             annotations.keys(),
         )
         for field in fields:
-            print(f"field {field}")
-            varname = field.upper()  # apply change later
+            varname = field.upper()
             varval = getenv(varname)
             if not varval:
                 raise RuntimeError(
