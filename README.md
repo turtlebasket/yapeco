@@ -6,7 +6,7 @@ A positively miniscule utility module to access `.env` (and otherwise environmen
 
 - Case-insensitive + snake-case (i.e. `SNAKE_case`) field names
 - Primitives such as `str`, `bool`, `int` and `float` are supported (no guarantees with `float` though, because, well... floating point)
-- Assuming use of the above primitives, supports `Optional[*]` types from (and by extension `Union[*,None]`), but no others from `typing`
+- Assuming use of the above primitives, supports `Optional[*]` types (and by extension `Union[*,None]`), but no others from `typing`
 - Default values through class variable assignment; assumed to be `None` for optional types
 - Will (intentionally) raise a `RuntimeError` if there is no value set and no default value
 - Common boolean config formats (i.e. `VAR=0/1/true/false/True/False`) work as expected
@@ -50,7 +50,9 @@ from config import Config
 Config.api_key # "abc123"
 Config.delay_msec # 18
 Config.feature_a_enabled # False
+Config.feature_a_flags # "-a -b -c"
 Config.feature_b_enabled # True
+Config.feature_b_flags # None
 
 # ...
 # API_KEY=def456
