@@ -4,7 +4,7 @@ if TYPE_CHECKING:
     try:
         from typing import Literal
     except ImportError:
-        from typing_extensions import Literal
+        from typing_extensions import Literal  # type: ignore
 else:
     try:
         from typing import Literal
