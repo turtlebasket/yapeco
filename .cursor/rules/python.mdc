@@ -1,0 +1,13 @@
+---
+alwaysApply: true
+---
+# Python Project Info
+
+When working on this project (yapeco):
+
+- Make sure all additions have backwards compatibility with Python ~3.8. No match/case, walrus, etc.
+- Also ensure backwards compatibility, especially for typing. E.g. we want to make sure we support:
+    - both `list[]` and `List[]` annotations
+    - both `Optional[x]` and `x | None`
+
+This is a poetry project. Use `poetry run <xyz>` to run any venv-scoped command. Use `just test` (aliased to pytest) to run tests. Tests are required after any change.
