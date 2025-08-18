@@ -1,9 +1,23 @@
 import json
 import yapeco as y
 from yapeco import BaseEnvironment as Env
-from typing import List, Optional
+from typing import List, Optional, TYPE_CHECKING
 from os import environ
 from enum import Enum, unique
+
+if TYPE_CHECKING:
+    try:
+        from typing import Literal
+    except ImportError:
+        from typing_extensions import Literal
+else:
+    try:
+        from typing import Literal
+    except ImportError:
+        try:
+            from typing_extensions import Literal
+        except ImportError:
+            Literal = None
 
 MIN_FLOAT_DIFF = 0.0000000001
 
@@ -66,8 +80,8 @@ def test_config_objects() -> None:
     environ["B"] = '{"a": 1, "b": "2", "c": 3.14, "d": false, "e": true, "f": 0}'
 
     class Config(Env):
-        a: y.JSON
-        b: y.JSON
+        a: y.JsonObject
+        b: y.JsonObject
 
     assert Config.a == {}, "Empty JSON object not parsed correctly"
     assert Config.b == {
@@ -136,8 +150,8 @@ def test_config_optional_types() -> None:
         j: Optional[bool]
         k: Optional[str]
         l: Optional[str]  # will have no value
-        m: Optional[y.JSON]
-        n: Optional[y.JSON]
+        m: Optional[y.JsonObject]
+        n: Optional[y.JsonObject]
         o: Optional[List[int]]  # one item
         p: Optional[List[int]]  # multiple items
         q: Optional[List[int]]  # no items
@@ -199,7 +213,7 @@ def test_error_handling() -> None:
     try:
 
         class Config1(Env):
-            a: y.JSON
+            a: y.JsonObject
 
         assert False, "Should have raised RuntimeError for missing required variable"
     except RuntimeError as e:
@@ -224,7 +238,7 @@ def test_error_handling() -> None:
     try:
 
         class Config3(Env):
-            c: y.JSON
+            c: y.JsonObject
 
         assert False, "Should have raised exception for invalid JSON"
     except json.JSONDecodeError:
@@ -348,11 +362,11 @@ def test_json_edge_cases() -> None:
     )
 
     class Config(Env):
-        a: y.JSON
-        b: y.JSON
-        c: y.JSON
-        d: y.JSON
-        e: y.JSON
+        a: y.JsonObject
+        b: y.JsonObject
+        c: y.JsonObject
+        d: y.JsonObject
+        e: y.JsonObject
 
     assert Config.a == [1, 2, 3], "JSON array of numbers not parsed correctly"
     assert Config.b == ["a", "b", "c"], "JSON array of strings not parsed correctly"
@@ -552,3 +566,123 @@ def test_enum_refresh() -> None:
     # refresh and check new value
     Config.refresh()
     assert Config.mode == EnvMode.PRODUCTION, "Enum value should update after refresh"
+
+
+def test_literal_types() -> None:
+    if Literal is None:
+        raise RuntimeError("Literal is not available")
+
+    environ.clear()
+
+    environ["MODE"] = "debug"
+    environ["PORT"] = "8080"
+    environ["ENABLED"] = "true"
+    environ["VERSION"] = "1.0"
+
+    class Config(Env):
+        mode: Literal["debug", "release"]
+        port: Literal[8080, 9000, 3000]
+        enabled: Literal[True, False]
+        version: Literal["1.0", "2.0"]
+
+    assert Config.mode == "debug", "String literal not parsed correctly"
+    assert Config.port == 8080, "Int literal not parsed correctly"
+    assert Config.enabled == True, "Bool literal not parsed correctly"
+    assert Config.version == "1.0", "Mixed literal not parsed correctly"
+
+
+def test_optional_literal_types() -> None:
+    if Literal is None:
+        raise RuntimeError("Literal is not available")
+
+    environ.clear()
+
+    environ["MODE"] = "production"
+    # PORT not set
+
+    class Config(Env):
+        mode: Optional[Literal["development", "production"]]
+        port: Optional[Literal[8080, 9000]]
+
+    assert Config.mode == "production", "Optional literal not parsed correctly"
+    assert Config.port is None, "Optional literal should be None when not set"
+
+
+def test_literal_default_values() -> None:
+    if Literal is None:
+        return  # Skip test if Literal is not available
+
+    environ.clear()
+
+    class Config(Env):
+        mode: Literal["dev", "prod"] = "dev"
+        count: Literal[1, 5, 10] = 5
+
+    assert Config.mode == "dev", "Literal default not set correctly"
+    assert Config.count == 5, "Literal default not set correctly"
+
+
+def test_literal_error_handling() -> None:
+    if Literal is None:
+        raise RuntimeError("Literal is not available")
+
+    environ.clear()
+
+    # Test missing required literal
+    try:
+
+        class Config1(Env):
+            mode: Literal["dev", "prod"]
+
+        assert False, "Should have raised RuntimeError for missing required literal"
+    except RuntimeError as e:
+        assert e.args[0] == "Failed to load required environment variable `MODE`"
+
+    # Test invalid literal value
+    environ["MODE"] = "invalid_mode"
+    try:
+
+        class Config2(Env):
+            mode: Literal["dev", "prod"]
+
+        assert False, "Should have raised ValueError for invalid literal value"
+    except ValueError as e:
+        assert "not one of the allowed literal values" in str(e)
+
+    # Test blank literal value
+    environ["MODE"] = ""
+    try:
+
+        class Config3(Env):
+            mode: Literal["dev", "prod"]
+
+        assert False, "Should have raised RuntimeError for blank literal value"
+    except RuntimeError as e:
+        assert "is blank and not marked as optional" in e.args[0]
+
+
+def test_literal_type_coercion() -> None:
+    if Literal is None:
+        raise RuntimeError("Literal is not available")
+
+    environ.clear()
+
+    # Test type coercion for different literal types
+    environ["STR_VAL"] = "hello"
+    environ["INT_VAL"] = "42"
+    environ["INT_VAL2"] = "314"
+    environ["BOOL_VAL"] = "false"
+    environ["MIXED_VAL"] = "100"  # Should match int literal
+
+    class Config(Env):
+        str_val: Literal["hello", "world"]
+        int_val: Literal[42, 99]
+        int_val2: Literal[314, 271]  # Using ints instead of floats for type checker
+        bool_val: Literal[True, False]
+        mixed_val: Literal["text", 100]  # Mixed types without floats
+
+    assert Config.str_val == "hello", "String literal coercion failed"
+    assert Config.int_val == 42, "Int literal coercion failed"
+    assert Config.int_val2 == 314, "Int literal coercion failed"
+    assert Config.bool_val == False, "Bool literal coercion failed"
+    assert Config.mixed_val == 100, "Mixed literal coercion failed"

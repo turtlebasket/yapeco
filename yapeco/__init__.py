@@ -1,4 +1,18 @@
-from typing import Any, Dict, List, Optional, Union, get_origin, get_args
+from typing import Any, Dict, List, Optional, Union, get_origin, get_args, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    try:
+        from typing import Literal
+    except ImportError:
+        from typing_extensions import Literal
+else:
+    try:
+        from typing import Literal
+    except ImportError:
+        try:
+            from typing_extensions import Literal
+        except ImportError:
+            Literal = None
 from os import getenv
 from re import compile as compile_regex
 from json import loads as json_loads
@@ -8,7 +22,7 @@ import sys
 _builtin_field_re = compile_regex(r"^__[a-z][a-z0-9_]+__$")
 
 
-class JSON:
+class JsonObject:
     pass
 
 
@@ -22,6 +36,55 @@ def is_enum_type(field_type):
         return isinstance(field_type, type) and issubclass(field_type, Enum)
     except TypeError:
         return False
+
+
+def is_literal_type(field_type):
+    """Check if a type is a Literal union."""
+    if Literal is None:
+        return False
+
+    if sys.version_info >= (3, 8):
+        origin = get_origin(field_type)
+        return origin is Literal
+    else:
+        return getattr(field_type, "__origin__", None) is Literal
+
+
+def parse_literal_value(field_type, value_str):
+    """Parse a string value against a Literal type's allowed values."""
+    if sys.version_info >= (3, 8):
+        literal_values = get_args(field_type)
+    else:
+        literal_values = getattr(field_type, "__args__", ())
+
+    # Try to match the string directly first
+    if value_str in literal_values:
+        return value_str
+
+    # Try type conversions for each literal value
+    for literal_val in literal_values:
+        try:
+            if isinstance(literal_val, bool):
+                # Handle bool first since bool is a subclass of int in Python
+                bool_val = value_str.lower() != "false" and value_str != "0"
+                if bool_val == literal_val:
+                    return literal_val
+            elif isinstance(literal_val, str):
+                if value_str == literal_val:
+                    return literal_val
+            elif isinstance(literal_val, int):
+                if int(value_str) == literal_val:
+                    return literal_val
+            elif isinstance(literal_val, float):
+                if float(value_str) == literal_val:
+                    return literal_val
+        except (ValueError, TypeError):
+            continue
+
+    # If no match found, raise ValueError
+    raise ValueError(
+        f"Value '{value_str}' is not one of the allowed literal values: {literal_values}"
+    )
 
 
 class BaseEnvironment:
@@ -50,10 +113,12 @@ class BaseEnvironment:
             if field_type == Optional[bool]:
                 optional = True
                 if env_value_valid(varval):
+                    assert varval is not None  # Type checker hint
                     v = varval.lower() != "false" and varval != "0"
-            elif field_type == Optional[JSON]:
+            elif field_type == Optional[JsonObject]:
                 optional = True
                 if env_value_valid(varval):
+                    assert varval is not None  # Type checker hint
                     v = json_loads(varval)
             else:
                 # Check for Optional[Enum] - need to handle both Python 3.8+ and older versions
@@ -71,6 +136,10 @@ class BaseEnvironment:
                         optional = True
                         if env_value_valid(varval):
                             v = inner_type(varval)
+                    elif is_literal_type(inner_type):
+                        optional = True
+                        if env_value_valid(varval):
+                            v = parse_literal_value(inner_type, varval)
 
                 if not optional:
                     for typ in [str, int, float]:
@@ -106,10 +175,12 @@ class BaseEnvironment:
                     )
                 elif field_type == bool:
                     v = varval.lower() != "false" and varval != "0"
-                elif field_type == JSON:
+                elif field_type == JsonObject:
                     v = json_loads(varval)
                 elif is_enum_type(field_type):
                     v = field_type(varval)
+                elif is_literal_type(field_type):
+                    v = parse_literal_value(field_type, varval)
                 else:
                     for typ in [str, int, float]:
                         if field_type == typ:

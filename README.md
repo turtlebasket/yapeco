@@ -1,16 +1,17 @@
-# `yapeco`: Yet Another Python Envvar Config Object
+# `yapeco`
 
-A positively miniscule utility module to access `.env` (and otherwise environment-defined) config values in a structured way through a Python object. Created out of annoyance with not being able to autocomplete said envvars in my editor :^)
+`yapeco` (Yet Another Python Envvar Config Object) is a tiny utility module to access `.env` (and otherwise environment-defined) config values in a structured way through a Python object. Created for the dual purpose of easily requiring/defaulting/casting environment variables at startup time for typical Python microservices & being able to autocomplete envvars in my editor.
 
 ## Features & Limitations
 
 - Case-insensitive + snake-case (i.e. `SNAKE_case`) field names
 - Primitives such as `str`, `bool`, `int` and `float` are supported (no guarantees with `float` though, because, well... floating point)
-- Enum support with proper type checking
 - Assuming use of the above primitives and enums, supports `Optional[*]` types (and by extension `Union[*,None]`), but no others from `typing`
 - Default values through class variable assignment; assumed to be `None` for optional types
 - Will (intentionally) raise a `RuntimeError` if there is no value set and no default value
 - Common boolean config formats (i.e. `VAR=0/1/true/false/True/False`) work as expected
+- Enums as well as str/int-literal unions are checked and parsed out
+- Unchecked JSON objects can be used too if you really want that for some reason lmao
 
 ## Usage
 
@@ -20,7 +21,7 @@ Installation (PyPI):
 pip3 install yapeco
 ```
 
-A simple example:
+Simple example:
 
 ```bash
 # -- [mock environment] ---------------------------
@@ -28,7 +29,8 @@ API_KEY=abc123
 DELAY_MSEC=18
 FEATURE_A_ENABLED=false
 FEATURE_B_ENABLED=1
-VALUE=thing1
+VALUE=thing2
+VALUE2=8
 ```
 
 ```python
@@ -49,7 +51,8 @@ class Config(Env):
     feature_a_flags: str = "-a -b -c"
     feature_b_enabled: bool
     feature_b_flags: Optional[str]
-    value: MyValue = "thing2"
+    value: MyValue
+    value2: Literal["abc", "def", 7, 8]
 
 
 # --- main.py -------------------------------------
@@ -62,7 +65,8 @@ Config.feature_a_enabled # False
 Config.feature_a_flags # "-a -b -c"
 Config.feature_b_enabled # True
 Config.feature_b_flags # None
-Config.value # MyValue.Thing1
+Config.value # MyValue.THING1
+Config.value2 # 7
 
 # ...
 # API_KEY=def456
@@ -84,13 +88,6 @@ poetry build  # build package
 poetry run pytest .  # run tests
 poetry run pyright .  # run type checks
 ```
-
-## Feature Backburner
-
-- [ ] Support implied types (type conversion currently depends on `cls.__annotations__`)
-- [x] Support enums
-- [ ] Support JSON objects / auto-decoding
-- [ ] Support dataclasses with primitive-only fields
 
 ## Extra
 
