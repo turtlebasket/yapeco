@@ -6,7 +6,8 @@ A positively miniscule utility module to access `.env` (and otherwise environmen
 
 - Case-insensitive + snake-case (i.e. `SNAKE_case`) field names
 - Primitives such as `str`, `bool`, `int` and `float` are supported (no guarantees with `float` though, because, well... floating point)
-- Assuming use of the above primitives, supports `Optional[*]` types (and by extension `Union[*,None]`), but no others from `typing`
+- Enum support with proper type checking
+- Assuming use of the above primitives and enums, supports `Optional[*]` types (and by extension `Union[*,None]`), but no others from `typing`
 - Default values through class variable assignment; assumed to be `None` for optional types
 - Will (intentionally) raise a `RuntimeError` if there is no value set and no default value
 - Common boolean config formats (i.e. `VAR=0/1/true/false/True/False`) work as expected
@@ -27,12 +28,19 @@ API_KEY=abc123
 DELAY_MSEC=18
 FEATURE_A_ENABLED=false
 FEATURE_B_ENABLED=1
+VALUE=thing1
 ```
 
 ```python
 # --- contrived_config.py -------------------------
 
+from enum import Enum, unique
 from yapeco import BaseEnvironment as Env
+
+@unique
+class MyValue(Enum):
+    THING1 = "thing1"
+    THING2 = "thing2"
 
 class Config(Env):
     api_key: str
@@ -41,6 +49,7 @@ class Config(Env):
     feature_a_flags: str = "-a -b -c"
     feature_b_enabled: bool
     feature_b_flags: Optional[str]
+    value: MyValue = "thing2"
 
 
 # --- main.py -------------------------------------
@@ -53,6 +62,7 @@ Config.feature_a_enabled # False
 Config.feature_a_flags # "-a -b -c"
 Config.feature_b_enabled # True
 Config.feature_b_flags # None
+Config.value # MyValue.Thing1
 
 # ...
 # API_KEY=def456
@@ -77,7 +87,10 @@ poetry run pyright .  # run type checks
 
 ## Feature Backburner
 
-- Support implied types (type conversion currently depends on `cls.__annotations__`)
+- [ ] Support implied types (type conversion currently depends on `cls.__annotations__`)
+- [x] Support enums
+- [ ] Support JSON objects / auto-decoding
+- [ ] Support dataclasses with primitive-only fields
 
 ## Extra
 

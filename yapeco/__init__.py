@@ -1,7 +1,9 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union, get_origin, get_args
 from os import getenv
 from re import compile as compile_regex
 from json import loads as json_loads
+from enum import Enum
+import sys
 
 _builtin_field_re = compile_regex(r"^__[a-z][a-z0-9_]+__$")
 
@@ -12,6 +14,14 @@ class JSON:
 
 def env_value_valid(val):
     return val != None and val != ""
+
+
+def is_enum_type(field_type):
+    """Check if a type is an enum class."""
+    try:
+        return isinstance(field_type, type) and issubclass(field_type, Enum)
+    except TypeError:
+        return False
 
 
 class BaseEnvironment:
@@ -46,20 +56,39 @@ class BaseEnvironment:
                 if env_value_valid(varval):
                     v = json_loads(varval)
             else:
-                for typ in [str, int, float]:
-                    if field_type == Optional[typ]:
+                # Check for Optional[Enum] - need to handle both Python 3.8+ and older versions
+                if sys.version_info >= (3, 8):
+                    origin = get_origin(field_type)
+                    args = get_args(field_type)
+                else:
+                    origin = getattr(field_type, "__origin__", None)
+                    args = getattr(field_type, "__args__", ())
+
+                # Check if this is Optional/Union type
+                if origin is Union and len(args) == 2 and type(None) in args:
+                    inner_type = args[0] if args[1] is type(None) else args[1]
+                    if is_enum_type(inner_type):
                         optional = True
                         if env_value_valid(varval):
-                            v = typ(varval)
-                        break
-                    elif field_type == Optional[List[typ]]:
-                        optional = True
-                        # overrides behavior of env_value_valid; empty string corresponds to empty list
-                        if varval == "":
-                            v = []
-                        elif varval != None:
-                            v = list(map(lambda x: typ(x.strip()), varval.split(",")))
-                        break
+                            v = inner_type(varval)
+
+                if not optional:
+                    for typ in [str, int, float]:
+                        if field_type == Optional[typ]:
+                            optional = True
+                            if env_value_valid(varval):
+                                v = typ(varval)
+                            break
+                        elif field_type == Optional[List[typ]]:
+                            optional = True
+                            # overrides behavior of env_value_valid; empty string corresponds to empty list
+                            if varval == "":
+                                v = []
+                            elif varval != None:
+                                v = list(
+                                    map(lambda x: typ(x.strip()), varval.split(","))
+                                )
+                            break
 
             # non-optional cases
 
@@ -79,6 +108,8 @@ class BaseEnvironment:
                     v = varval.lower() != "false" and varval != "0"
                 elif field_type == JSON:
                     v = json_loads(varval)
+                elif is_enum_type(field_type):
+                    v = field_type(varval)
                 else:
                     for typ in [str, int, float]:
                         if field_type == typ:

@@ -3,8 +3,23 @@ import yapeco as y
 from yapeco import BaseEnvironment as Env
 from typing import List, Optional
 from os import environ
+from enum import Enum, unique
 
 MIN_FLOAT_DIFF = 0.0000000001
+
+
+@unique
+class EnvMode(Enum):
+    DEVELOPMENT = "development"
+    PRODUCTION = "production"
+    TESTING = "testing"
+
+
+class LogLevel(Enum):
+    DEBUG = "debug"
+    INFO = "info"
+    WARNING = "warning"
+    ERROR = "error"
 
 
 def test_config_primitive_types() -> None:
@@ -437,3 +452,103 @@ def test_type_coercion_edge_cases() -> None:
     assert Config2.h == [1, 2, 3], "List with spaces not parsed correctly"
     assert Config2.i == [1, 2, 3], "List with extra whitespace not parsed correctly"
     assert Config2.j == [1, 2, 3], "List with irregular spacing not parsed correctly"
+
+
+def test_enum_types() -> None:
+    environ.clear()
+
+    environ["MODE"] = "development"
+    environ["LOG_LEVEL"] = "info"
+
+    class Config(Env):
+        mode: EnvMode
+        log_level: LogLevel
+
+    assert Config.mode == EnvMode.DEVELOPMENT, "Enum not parsed correctly"
+    assert Config.log_level == LogLevel.INFO, "Enum not parsed correctly"
+    assert isinstance(Config.mode, EnvMode), "Value should be enum instance"
+    assert isinstance(Config.log_level, LogLevel), "Value should be enum instance"
+
+
+def test_optional_enum_types() -> None:
+    environ.clear()
+
+    environ["MODE"] = "production"
+    # LOG_LEVEL not set
+
+    class Config(Env):
+        mode: Optional[EnvMode]
+        log_level: Optional[LogLevel]
+
+    assert Config.mode == EnvMode.PRODUCTION, "Optional enum not parsed correctly"
+    assert Config.log_level is None, "Optional enum should be None when not set"
+    assert isinstance(Config.mode, EnvMode), "Value should be enum instance"
+
+
+def test_enum_default_values() -> None:
+    environ.clear()
+
+    class Config(Env):
+        mode: EnvMode = EnvMode.DEVELOPMENT
+        log_level: LogLevel = LogLevel.WARNING
+
+    assert Config.mode == EnvMode.DEVELOPMENT, "Enum default not set correctly"
+    assert Config.log_level == LogLevel.WARNING, "Enum default not set correctly"
+
+
+def test_enum_error_handling() -> None:
+    environ.clear()
+
+    # missing required enum
+    try:
+
+        class Config1(Env):
+            mode: EnvMode
+
+        assert False, "Should have raised RuntimeError for missing required enum"
+    except RuntimeError as e:
+        assert e.args[0] == "Failed to load required environment variable `MODE`"
+
+    # invalid enum value
+    environ["MODE"] = "invalid_mode"
+    try:
+
+        class Config2(Env):
+            mode: EnvMode
+
+        assert False, "Should have raised ValueError for invalid enum value"
+    except ValueError:
+        pass  # Should raise ValueError for invalid enum value
+
+    # try blank string value for enum
+    environ["MODE"] = ""
+    try:
+
+        class Config3(Env):
+            mode: EnvMode
+
+        assert False, "Should have raised RuntimeError for blank enum value"
+    except RuntimeError as e:
+        assert "is blank and not marked as optional" in e.args[0]
+
+
+def test_enum_refresh() -> None:
+    environ.clear()
+    environ["MODE"] = "development"
+
+    class Config(Env):
+        mode: EnvMode
+
+    assert Config.mode == EnvMode.DEVELOPMENT, "Initial enum value not set correctly"
+
+    # change environment variable
+    environ["MODE"] = "production"
+
+    # value should still be the old one
+    assert (
+        Config.mode == EnvMode.DEVELOPMENT
+    ), "Enum value should not change without refresh"
+
+    # refresh and check new value
+    Config.refresh()
+    assert Config.mode == EnvMode.PRODUCTION, "Enum value should update after refresh"
