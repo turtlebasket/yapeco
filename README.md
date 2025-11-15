@@ -1,5 +1,8 @@
 # `yapeco`
 
+[![PyPI version](https://badge.fury.io/py/yapeco.svg)](https://badge.fury.io/py/yapeco)
+[![](https://github.com/turtlebasket/yapeco/actions/workflows/ci.yml/badge.svg)](https://github.com/turtlebasket/yapeco/actions/workflows/ci.yml)
+
 `yapeco` (Yet Another Python Envvar Config Object) is a tiny utility module to access `.env` (and otherwise environment-defined) config values in a structured way through a Python object. Created for the dual purpose of easily requiring/defaulting/casting environment variables at startup time for typical Python microservices & being able to autocomplete envvars in my editor.
 
 ## Features & Limitations
