@@ -93,7 +93,7 @@ class BaseEnvironment:
     """
 
     def __init_subclass__(cls) -> None:
-        annotations: Dict[str, Any] = cls.__dict__["__annotations__"]
+        annotations: Dict[str, Any] = cls.__annotations__
         fields = filter(
             lambda x: _builtin_field_re.search(x) == None,
             annotations.keys(),
