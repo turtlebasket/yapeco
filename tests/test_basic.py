@@ -1,9 +1,10 @@
 import json
+from enum import Enum, unique
+from os import environ
+from typing import TYPE_CHECKING, List, Optional, Protocol, Type, cast
+
 import yapeco as y
 from yapeco import BaseEnvironment as Env
-from typing import List, Optional, TYPE_CHECKING
-from os import environ
-from enum import Enum, unique
 
 if TYPE_CHECKING:
     try:
@@ -149,7 +150,7 @@ def test_config_optional_types() -> None:
         i: Optional[bool]
         j: Optional[bool]
         k: Optional[str]
-        l: Optional[str]  # will have no value
+        missing_str: Optional[str]  # will have no value
         m: Optional[y.JsonObject]
         n: Optional[y.JsonObject]
         o: Optional[List[int]]  # one item
@@ -162,9 +163,9 @@ def test_config_optional_types() -> None:
     # same tests as before
     assert Config.a == 1, "Optional int not parsed correctly"
     assert Config.b == "2", "Optional str not parsed correctly"
-    assert (
-        Config.c != None and Config.c - 3.0 < MIN_FLOAT_DIFF
-    ), "Optional float not parsed correctly"
+    assert Config.c is not None and Config.c - 3.0 < MIN_FLOAT_DIFF, (
+        "Optional float not parsed correctly"
+    )
     assert not Config.d, "Optional bool not parsed correctly"
     assert not Config.e, "Optional bool not parsed correctly"
     assert not Config.f, "Optional bool not parsed correctly"
@@ -173,7 +174,7 @@ def test_config_optional_types() -> None:
     assert Config.i, "Optional bool not parsed correctly"
     assert Config.j, "Optional bool not parsed correctly"
     assert Config.k == "abc", "str not parsed correctly"
-    assert Config.l == None, "Optional JSON object not parsed correctly"
+    assert Config.missing_str is None, "Optional str not parsed correctly"
     assert Config.m == {
         "a": 1,
         "b": "2",
@@ -182,7 +183,7 @@ def test_config_optional_types() -> None:
         "e": True,
         "f": 0,
     }, "JSON object not parsed correctly"
-    assert Config.n == None, "Optional JSON object not parsed correctly"
+    assert Config.n is None, "Optional JSON object not parsed correctly"
     assert Config.o == [1], "Optional List[int] not parsed correctly"
     assert Config.p == [1, 2, 3, 4, 5], "Optional List[int] not parsed correctly"
     assert Config.q == [], "Optional List[int] not parsed correctly"
@@ -228,9 +229,9 @@ def test_error_handling() -> None:
 
         assert False, "Should have raised RuntimeError for blank required variable"
     except RuntimeError as e:
-        assert (
-            e.args[0]
-            == "Environment variable `B` is blank and not marked as optional; it must have a value"
+        assert e.args[0] == (
+            "Environment variable `B` is blank and not marked as optional; "
+            "it must have a value"
         )
 
     # invalid JSON conversion
@@ -287,7 +288,7 @@ def test_edge_cases() -> None:
     assert Config1.a == 123, "int with whitespace not trimmed correctly"
     assert Config1.b == " hello world ", "str should preserve whitespace"
     assert Config1.c == 3.14, "float with whitespace not trimmed correctly"
-    assert Config1.d == True, "bool with whitespace not trimmed correctly"
+    assert Config1.d, "bool with whitespace not trimmed correctly"
     assert Config1.e == [1, 2, 3], "List with extra whitespace not parsed correctly"
 
     environ.clear()
@@ -316,17 +317,17 @@ def test_edge_cases() -> None:
 
     # special string values
     environ["K"] = "0"
-    environ["L"] = "false"
+    environ["ELL"] = "false"
     environ["M"] = ""
 
     class Config3(Env):
         k: str
-        l: str
+        ell: str
         m: Optional[str]
 
     assert Config3.k == "0", "String '0' should remain as string"
-    assert Config3.l == "false", "String 'false' should remain as string"
-    assert Config3.m == None, "Empty string for Optional[str] should be None"
+    assert Config3.ell == "false", "String 'false' should remain as string"
+    assert Config3.m is None, "Empty string for Optional[str] should be None"
 
     environ.clear()
 
@@ -358,7 +359,8 @@ def test_json_edge_cases() -> None:
 
     # JSON with special characters
     environ["E"] = (
-        '{"unicode": "café", "quotes": "he said \\"hello\\"", "newline": "line1\\nline2"}'
+        '{"unicode": "café", "quotes": "he said \\"hello\\"", '
+        '"newline": "line1\\nline2"}'
     )
 
     class Config(Env):
@@ -374,16 +376,16 @@ def test_json_edge_cases() -> None:
         {"key": "value"},
         {"key2": "value2"},
     ], "JSON array of objects not parsed correctly"
-    assert Config.d == {
-        "nested": {"key": "value", "array": [1, 2, 3]}
-    }, "Nested JSON object not parsed correctly"
+    assert Config.d == {"nested": {"key": "value", "array": [1, 2, 3]}}, (
+        "Nested JSON object not parsed correctly"
+    )
     assert Config.e["unicode"] == "café", "JSON with unicode not parsed correctly"
-    assert (
-        Config.e["quotes"] == 'he said "hello"'
-    ), "JSON with escaped quotes not parsed correctly"
-    assert (
-        Config.e["newline"] == "line1\nline2"
-    ), "JSON with newline not parsed correctly"
+    assert Config.e["quotes"] == 'he said "hello"', (
+        "JSON with escaped quotes not parsed correctly"
+    )
+    assert Config.e["newline"] == "line1\nline2", (
+        "JSON with newline not parsed correctly"
+    )
 
 
 def test_refresh_method() -> None:
@@ -559,9 +561,9 @@ def test_enum_refresh() -> None:
     environ["MODE"] = "production"
 
     # value should still be the old one
-    assert (
-        Config.mode == EnvMode.DEVELOPMENT
-    ), "Enum value should not change without refresh"
+    assert Config.mode == EnvMode.DEVELOPMENT, (
+        "Enum value should not change without refresh"
+    )
 
     # refresh and check new value
     Config.refresh()
@@ -580,14 +582,14 @@ def test_literal_types() -> None:
     environ["VERSION"] = "1.0"
 
     class Config(Env):
-        mode: Literal["debug", "release"]
+        mode: Literal["debug", "release"]  # noqa: F821
         port: Literal[8080, 9000, 3000]
         enabled: Literal[True, False]
         version: Literal["1.0", "2.0"]
 
     assert Config.mode == "debug", "String literal not parsed correctly"
     assert Config.port == 8080, "Int literal not parsed correctly"
-    assert Config.enabled == True, "Bool literal not parsed correctly"
+    assert Config.enabled, "Bool literal not parsed correctly"
     assert Config.version == "1.0", "Mixed literal not parsed correctly"
 
 
@@ -601,7 +603,7 @@ def test_optional_literal_types() -> None:
     # PORT not set
 
     class Config(Env):
-        mode: Optional[Literal["development", "production"]]
+        mode: Optional[Literal["development", "production"]]  # noqa: F821
         port: Optional[Literal[8080, 9000]]
 
     assert Config.mode == "production", "Optional literal not parsed correctly"
@@ -615,7 +617,7 @@ def test_literal_default_values() -> None:
     environ.clear()
 
     class Config(Env):
-        mode: Literal["dev", "prod"] = "dev"
+        mode: Literal["dev", "prod"] = "dev"  # noqa: F821
         count: Literal[1, 5, 10] = 5
 
     assert Config.mode == "dev", "Literal default not set correctly"
@@ -632,7 +634,7 @@ def test_literal_error_handling() -> None:
     try:
 
         class Config1(Env):
-            mode: Literal["dev", "prod"]
+            mode: Literal["dev", "prod"]  # noqa: F821
 
         assert False, "Should have raised RuntimeError for missing required literal"
     except RuntimeError as e:
@@ -643,7 +645,7 @@ def test_literal_error_handling() -> None:
     try:
 
         class Config2(Env):
-            mode: Literal["dev", "prod"]
+            mode: Literal["dev", "prod"]  # noqa: F821
 
         assert False, "Should have raised ValueError for invalid literal value"
     except ValueError as e:
@@ -654,7 +656,7 @@ def test_literal_error_handling() -> None:
     try:
 
         class Config3(Env):
-            mode: Literal["dev", "prod"]
+            mode: Literal["dev", "prod"]  # noqa: F821
 
         assert False, "Should have raised RuntimeError for blank literal value"
     except RuntimeError as e:
@@ -675,17 +677,34 @@ def test_literal_type_coercion() -> None:
     environ["MIXED_VAL"] = "100"  # Should match int literal
 
     class Config(Env):
-        str_val: Literal["hello", "world"]
+        str_val: Literal["hello", "world"]  # noqa: F821
         int_val: Literal[42, 99]
         int_val2: Literal[314, 271]  # Using ints instead of floats for type checker
         bool_val: Literal[True, False]
-        mixed_val: Literal["text", 100]  # Mixed types without floats
+        mixed_val: Literal["text", 100]  # Mixed types without floats  # noqa: F821
 
     assert Config.str_val == "hello", "String literal coercion failed"
     assert Config.int_val == 42, "Int literal coercion failed"
     assert Config.int_val2 == 314, "Int literal coercion failed"
-    assert Config.bool_val == False, "Bool literal coercion failed"
+    assert not Config.bool_val, "Bool literal coercion failed"
     assert Config.mixed_val == 100, "Mixed literal coercion failed"
+
+
+def test_literal_bool_whitespace() -> None:
+    if Literal is None:
+        raise RuntimeError("Literal is not available")
+
+    environ.clear()
+
+    environ["LIT_BOOL"] = "false"
+    environ["LIT_BOOL_SPACED"] = "False "
+
+    class Config(Env):
+        lit_bool: Literal[True, False]
+        lit_bool_spaced: Literal[True, False]
+
+    assert not Config.lit_bool, "Literal bool 'false' should be False"
+    assert Config.lit_bool_spaced, "Literal bool with whitespace should be True"
 
 
 def test_unicode_handling() -> None:
@@ -708,12 +727,12 @@ def test_unicode_handling() -> None:
     assert Config.unicode_str == "café ☕ 🚀", "Unicode string not handled correctly"
     assert Config.emoji == "🎉", "Emoji not handled correctly"
     assert Config.chinese == "你好", "Chinese characters not handled correctly"
-    assert (
-        Config.escaped == "line1\\nline2\\ttab"
-    ), "Escaped characters should remain as literal"
-    assert (
-        Config.quotes == "He said \"hello\" and 'goodbye'"
-    ), "Quotes not handled correctly"
+    assert Config.escaped == "line1\\nline2\\ttab", (
+        "Escaped characters should remain as literal"
+    )
+    assert Config.quotes == "He said \"hello\" and 'goodbye'", (
+        "Quotes not handled correctly"
+    )
 
 
 def test_large_numbers() -> None:
@@ -734,18 +753,18 @@ def test_large_numbers() -> None:
         zero_scientific: float
 
     assert Config.large_int == 999999999999999999, "Large int not parsed correctly"
-    assert (
-        Config.negative_large == -999999999999999999
-    ), "Negative large int not parsed correctly"
-    assert (
-        abs(Config.scientific - 1.23e10) < 1e6
-    ), "Scientific notation not parsed correctly"
-    assert (
-        abs(Config.negative_scientific - (-4.56e-10)) < 1e-15
-    ), "Negative scientific notation not parsed correctly"
-    assert (
-        Config.zero_scientific == 0.0
-    ), "Zero in scientific notation not parsed correctly"
+    assert Config.negative_large == -999999999999999999, (
+        "Negative large int not parsed correctly"
+    )
+    assert abs(Config.scientific - 1.23e10) < 1e6, (
+        "Scientific notation not parsed correctly"
+    )
+    assert abs(Config.negative_scientific - (-4.56e-10)) < 1e-15, (
+        "Negative scientific notation not parsed correctly"
+    )
+    assert Config.zero_scientific == 0.0, (
+        "Zero in scientific notation not parsed correctly"
+    )
 
 
 def test_type_annotation_variations() -> None:
@@ -756,6 +775,7 @@ def test_type_annotation_variations() -> None:
     environ["LIST_NEW"] = "a, b, c"
     environ["OPT_OLD"] = "test"
     environ["OPT_UNION"] = "42"
+    environ["OPT_UNION2"] = "7"
 
     from typing import List, Union
 
@@ -764,23 +784,23 @@ def test_type_annotation_variations() -> None:
         opt_old: Optional[str]
 
     class ConfigNew(Env):
-        # Python 3.9+ style annotations, but should work in 3.8 too
+        # Python 3.9+ style annotations, but should work in 3.9 too
         list_new: List[str]  # Using List[] for compatibility
         opt_union: Union[int, None]  # Alternative to Optional[]
+        opt_union2: Union[None, int]
 
     assert ConfigOld.list_old == [1, 2, 3], "List[T] annotation not working"
     assert ConfigOld.opt_old == "test", "Optional[T] annotation not working"
     assert ConfigNew.list_new == ["a", "b", "c"], "List[T] annotation not working"
     assert ConfigNew.opt_union == 42, "Union[T, None] annotation not working"
+    assert ConfigNew.opt_union2 == 7, "Union[None, T] annotation not working"
 
 
 def test_complex_json_structures() -> None:
     """Test complex nested JSON structures."""
     environ.clear()
 
-    environ[
-        "DEEPLY_NESTED"
-    ] = """
+    environ["DEEPLY_NESTED"] = """
     {
         "level1": {
             "level2": {
@@ -799,7 +819,8 @@ def test_complex_json_structures() -> None:
 
     environ["JSON_ARRAY"] = '[{"x": 1}, {"y": 2}, {"z": [3, 4, 5]}]'
     environ["MIXED_TYPES"] = (
-        '{"str": "text", "int": 42, "float": 3.14, "bool": true, "null": null, "array": [1, "two", 3.0]}'
+        '{"str": "text", "int": 42, "float": 3.14, "bool": true, '
+        '"null": null, "array": [1, "two", 3.0]}'
     )
 
     class Config(Env):
@@ -865,10 +886,12 @@ def test_extreme_list_edge_cases() -> None:
     # Lists with unusual spacing and formatting
     environ["WEIRD_SPACES"] = "  1  ,  2  ,  3  "
     environ["MIXED_QUOTES"] = "\"hello\", 'world', unquoted"
+    environ["STRING_SPACES"] = " a ,  b , c "
 
     class Config1(Env):
         weird_spaces: List[int]
         mixed_quotes: List[str]
+        string_spaces: List[str]
 
     assert Config1.weird_spaces == [1, 2, 3], "Weird spacing not handled"
     assert Config1.mixed_quotes == [
@@ -876,6 +899,9 @@ def test_extreme_list_edge_cases() -> None:
         "'world'",
         "unquoted",
     ], "Mixed quotes not preserved"
+    assert Config1.string_spaces == ["a", "b", "c"], (
+        "String list whitespace not trimmed"
+    )
 
     # Test lists that will cause ValueError due to empty strings
     environ.clear()
@@ -908,6 +934,16 @@ def test_extreme_list_edge_cases() -> None:
         assert False, "Should have raised ValueError for empty strings in int list"
     except ValueError:
         pass  # Expected - empty strings between commas can't convert to int
+
+    environ["OPTIONAL_SPACES"] = "   "
+    try:
+
+        class OptionalSpacesConfig(Env):
+            optional_spaces: Optional[List[int]]
+
+        assert False, "Should have raised ValueError for whitespace-only int list"
+    except ValueError:
+        pass  # Expected - whitespace-only entries can't convert to int
 
     # String lists handle empty strings fine
     environ["ONLY_COMMAS"] = ",,,"
@@ -961,25 +997,27 @@ def test_boolean_edge_cases_comprehensive() -> None:
 
     for i, (env_value, expected, description) in enumerate(test_cases):
         environ.clear()
-        environ[f"TEST_VAR"] = env_value
+        environ["TEST_VAR"] = env_value
 
         if env_value == "":
             # Test optional bool for empty string
-            class TestConfig(Env):
+            class TestConfig(Env):  # type: ignore
                 test_var: Optional[bool]
 
             expected_result = None if env_value == "" else expected
-            assert (
-                TestConfig.test_var == expected_result
-            ), f"Failed for {description}: got {TestConfig.test_var}, expected {expected_result}"
+            assert TestConfig.test_var == expected_result, (
+                f"Failed for {description}: got {TestConfig.test_var}, "
+                f"expected {expected_result}"
+            )
         else:
 
-            class TestConfig(Env):
+            class TestConfig(Env):  # type: ignore
                 test_var: bool
 
-            assert (
-                TestConfig.test_var == expected
-            ), f"Failed for {description}: got {TestConfig.test_var}, expected {expected}"
+            assert TestConfig.test_var == expected, (
+                f"Failed for {description}: got {TestConfig.test_var}, "
+                f"expected {expected}"
+            )
 
 
 def test_multiple_inheritance() -> None:
@@ -1001,9 +1039,9 @@ def test_multiple_inheritance() -> None:
 
     assert MultiChild.base1_var == "base1", "Multiple inheritance from Base1 failed"
     assert MultiChild.base2_var == "base2", "Multiple inheritance from Base2 failed"
-    assert (
-        MultiChild.child_var == "child"
-    ), "Child variable in multiple inheritance failed"
+    assert MultiChild.child_var == "child", (
+        "Child variable in multiple inheritance failed"
+    )
 
 
 def test_override_behavior() -> None:
@@ -1018,7 +1056,7 @@ def test_override_behavior() -> None:
         override_var: str = "default"
 
     class Child(Parent):
-        override_var: int  # Different type
+        override_var: int  # type: ignore[assignment]
 
     assert Parent.shared_var == "parent_value"
     assert Parent.override_var == "42"  # String type from parent
@@ -1137,7 +1175,7 @@ def test_mixin_patterns() -> None:
     assert AppConfig.database_url == "postgresql://localhost"
     assert AppConfig.redis_url == "redis://localhost"
     assert AppConfig.log_level == "info"
-    assert AppConfig.debug == False
+    assert not AppConfig.debug
 
 
 def test_diamond_inheritance() -> None:
@@ -1171,7 +1209,6 @@ def test_diamond_inheritance() -> None:
 def test_concurrent_class_creation() -> None:
     """Test thread safety during class creation."""
     import threading
-    import time
 
     environ.clear()
     environ["CONCURRENT_VAR"] = "shared_value"
@@ -1179,18 +1216,32 @@ def test_concurrent_class_creation() -> None:
     results = []
     exceptions = []
 
+    class ThreadConfigProto(Protocol):
+        concurrent_var: str
+        thread_id: int
+
     def create_config_class(thread_id):
         try:
             # Create a unique class name to avoid conflicts
             class_name = f"ThreadConfig{thread_id}"
-            ThreadConfig = type(
-                class_name,
-                (Env,),
-                {"__annotations__": {"concurrent_var": str}, "thread_id": thread_id},
+            thread_config_class = cast(
+                Type[ThreadConfigProto],
+                type(
+                    class_name,
+                    (Env,),
+                    {
+                        "__annotations__": {"concurrent_var": str},
+                        "thread_id": thread_id,
+                    },
+                ),
             )
 
             results.append(
-                (thread_id, ThreadConfig.concurrent_var, ThreadConfig.thread_id)
+                (
+                    thread_id,
+                    thread_config_class.concurrent_var,
+                    thread_config_class.thread_id,
+                )  # type: ignore[attr-defined]
             )
         except Exception as e:
             exceptions.append((thread_id, e))
@@ -1213,12 +1264,12 @@ def test_concurrent_class_creation() -> None:
     assert len(results) == 5, f"Expected 5 results, got {len(results)}"
 
     for thread_id, concurrent_var, result_thread_id in results:
-        assert (
-            concurrent_var == "shared_value"
-        ), f"Thread {thread_id} got wrong value: {concurrent_var}"
-        assert (
-            result_thread_id == thread_id
-        ), f"Thread {thread_id} got wrong thread_id: {result_thread_id}"
+        assert concurrent_var == "shared_value", (
+            f"Thread {thread_id} got wrong value: {concurrent_var}"
+        )
+        assert result_thread_id == thread_id, (
+            f"Thread {thread_id} got wrong thread_id: {result_thread_id}"
+        )
 
 
 def test_memory_cleanup_behavior() -> None:
@@ -1230,10 +1281,10 @@ def test_memory_cleanup_behavior() -> None:
     configs = []
     for i in range(100):
         class_name = f"MemoryConfig{i}"
-        ConfigClass = type(
+        config_class = type(
             class_name, (Env,), {"__annotations__": {"memory_test": str}}
         )
-        configs.append(ConfigClass)
+        configs.append(config_class)
 
     # All should have the same value
     for config in configs:
@@ -1274,7 +1325,7 @@ def test_python_version_compatibility() -> None:
             # If this fails, it's expected in older Python versions
             pass
 
-    # This should work in all supported versions (3.8+)
+    # This should work in all supported versions (3.9+)
     from typing import List
 
     class CompatConfig(Env):
@@ -1291,14 +1342,14 @@ def test_typing_extensions_fallback() -> None:
         environ["FALLBACK_TEST"] = "option1"
 
         class FallbackConfig(Env):
-            fallback_test: Literal["option1", "option2"]
+            fallback_test: Literal["option1", "option2"]  # noqa: F821
 
         assert FallbackConfig.fallback_test == "option1", "Literal fallback failed"
     else:
         # If Literal is None, the import fallback worked as expected
-        assert (
-            True
-        ), "Literal correctly unavailable when typing_extensions not installed"
+        assert True, (
+            "Literal correctly unavailable when typing_extensions not installed"
+        )
 
 
 def test_field_name_edge_cases() -> None:
@@ -1309,20 +1360,20 @@ def test_field_name_edge_cases() -> None:
     environ["SIMPLE"] = "simple"
     environ["WITH_UNDERSCORE"] = "underscore"
     environ["MULTIPLE_UNDER_SCORES"] = "multiple"
-    environ["CAMELCASE"] = "camel"  # Note: field is camelCase but env var is CAMELCASE
+    environ["CAMELCASE"] = "camel"
     environ["NUMBER123"] = "number"
 
     class FieldNameConfig(Env):
         simple: str
         with_underscore: str
         multiple_under_scores: str
-        camelCase: str  # This maps to CAMELCASE
+        camelcase: str
         number123: str
 
     assert FieldNameConfig.simple == "simple"
     assert FieldNameConfig.with_underscore == "underscore"
     assert FieldNameConfig.multiple_under_scores == "multiple"
-    assert FieldNameConfig.camelCase == "camel"
+    assert FieldNameConfig.camelcase == "camel"
     assert FieldNameConfig.number123 == "number"
 
 
@@ -1372,6 +1423,16 @@ def test_json_null_handling() -> None:
 
     assert OptionalJsonConfigWithValue.json_just_null is None
 
+    environ["JSON_SPACES"] = "   "
+    try:
+
+        class OptionalJsonSpacesConfig(Env):
+            json_spaces: Optional[y.JsonObject]
+
+        assert False, "Should have raised JSON error for whitespace-only JSON"
+    except json.JSONDecodeError:
+        pass
+
 
 def test_enum_case_sensitivity() -> None:
     """Test enum parsing case sensitivity."""
@@ -1379,6 +1440,7 @@ def test_enum_case_sensitivity() -> None:
 
     environ["CASE_MODE"] = "DEVELOPMENT"  # uppercase
     environ["MIXED_MODE"] = "Production"  # mixed case
+    environ["SPACED_MODE"] = " development "
 
     try:
 
@@ -1397,6 +1459,15 @@ def test_enum_case_sensitivity() -> None:
         assert False, "Should have raised ValueError for case mismatch"
     except ValueError:
         pass  # Expected - enum values are case sensitive
+
+    try:
+
+        class CaseConfig3(Env):
+            spaced_mode: EnvMode  # expects exact match without whitespace
+
+        assert False, "Should have raised ValueError for spaced enum value"
+    except ValueError:
+        pass
 
 
 def test_list_of_enums() -> None:

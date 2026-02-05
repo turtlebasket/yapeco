@@ -1,4 +1,15 @@
-from typing import Any, Dict, List, Optional, Union, get_origin, get_args, TYPE_CHECKING
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+)
 
 if TYPE_CHECKING:
     try:
@@ -13,21 +24,37 @@ else:
             from typing_extensions import Literal
         except ImportError:
             Literal = None
+import sys
+from enum import Enum
+from json import JSONDecoder
+from json import loads as json_loads
 from os import getenv
 from re import compile as compile_regex
-from json import loads as json_loads
-from enum import Enum
-import sys
 
 _builtin_field_re = compile_regex(r"^__[a-z][a-z0-9_]+__$")
 
 
-class JsonObject:
+class JsonObject(dict):
+    """A dict subclass for JSON object values."""
+
     pass
 
 
+def _object_pairs_to_jsonobject(pairs):
+    """Convert object_pairs to JsonObject instance."""
+    return JsonObject(pairs)
+
+
+class JsonObjectDecoder(JSONDecoder):
+    """Custom JSON decoder that creates JsonObject instances for dictionaries."""
+
+    def __init__(self, *args, **kwargs):
+        kwargs["object_pairs_hook"] = _object_pairs_to_jsonobject
+        super().__init__(*args, **kwargs)
+
+
 def env_value_valid(val):
-    return val != None and val != ""
+    return val is not None and val != ""
 
 
 def is_enum_type(field_type):
@@ -83,7 +110,8 @@ def parse_literal_value(field_type, value_str):
 
     # If no match found, raise ValueError
     raise ValueError(
-        f"Value '{value_str}' is not one of the allowed literal values: {literal_values}"
+        f"Value '{value_str}' is not one of the allowed literal values: "
+        f"{literal_values}"
     )
 
 
@@ -95,7 +123,7 @@ class BaseEnvironment:
     def __init_subclass__(cls) -> None:
         annotations: Dict[str, Any] = cls.__annotations__
         fields = filter(
-            lambda x: _builtin_field_re.search(x) == None,
+            lambda x: _builtin_field_re.search(x) is None,
             annotations.keys(),
         )
         for field in fields:
@@ -119,9 +147,9 @@ class BaseEnvironment:
                 optional = True
                 if env_value_valid(varval):
                     assert varval is not None  # Type checker hint
-                    v = json_loads(varval)
+                    v = json_loads(varval, cls=JsonObjectDecoder)
             else:
-                # Check for Optional[Enum] - need to handle both Python 3.8+ and older versions
+                # Check for Optional[Enum] (compatible with Python 3.9+)
                 if sys.version_info >= (3, 8):
                     origin = get_origin(field_type)
                     args = get_args(field_type)
@@ -150,10 +178,11 @@ class BaseEnvironment:
                             break
                         elif field_type == Optional[List[typ]]:
                             optional = True
-                            # overrides behavior of env_value_valid; empty string corresponds to empty list
+                            # overrides behavior of env_value_valid
+                            # (empty string corresponds to empty list)
                             if varval == "":
                                 v = []
-                            elif varval != None:
+                            elif varval is not None:
                                 v = list(
                                     map(lambda x: typ(x.strip()), varval.split(","))
                                 )
@@ -162,8 +191,8 @@ class BaseEnvironment:
             # non-optional cases
 
             if not optional:
-                if varval == None:
-                    if default_value != None:
+                if varval is None:
+                    if default_value is not None:
                         v = default_value
                     else:
                         raise RuntimeError(
@@ -171,26 +200,27 @@ class BaseEnvironment:
                         )
                 elif varval == "":
                     raise RuntimeError(
-                        f"Environment variable `{varname}` is blank and not marked as optional; it must have a value"
+                        f"Environment variable `{varname}` is blank and not marked as "
+                        f"optional; it must have a value"
                     )
-                elif field_type == bool:
+                elif field_type is bool:
                     v = varval.lower() != "false" and varval != "0"
-                elif field_type == JsonObject:
-                    v = json_loads(varval)
+                elif field_type is JsonObject:
+                    v = json_loads(varval, cls=JsonObjectDecoder)
                 elif is_enum_type(field_type):
-                    v = field_type(varval)
+                    v = cast(Callable[[str], Any], field_type)(varval)
                 elif is_literal_type(field_type):
                     v = parse_literal_value(field_type, varval)
                 else:
                     for typ in [str, int, float]:
-                        if field_type == typ:
-                            v = field_type(varval)
+                        if field_type is typ:
+                            v = cast(Callable[[str], Any], field_type)(varval)
                             break
                         elif field_type == list[typ] or field_type == List[typ]:
                             v = list(map(lambda x: typ(x.strip()), varval.split(",")))
                             break
 
-                if v == None:
+                if v is None:
                     raise RuntimeError(
                         f"Unsupported type {field_type} for field {field}"
                     )

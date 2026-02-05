@@ -3,7 +3,7 @@
 [![PyPI version](https://badge.fury.io/py/yapeco.svg)](https://badge.fury.io/py/yapeco)
 [![](https://github.com/turtlebasket/yapeco/actions/workflows/ci.yml/badge.svg)](https://github.com/turtlebasket/yapeco/actions/workflows/ci.yml)
 
-`yapeco` (Yet Another Python Envvar Config Object) is a tiny utility module to access `.env` (and otherwise environment-defined) config values in a structured way through a Python object. Created for the dual purpose of easily requiring/defaulting/casting environment variables at startup time for typical Python microservices & being able to autocomplete envvars in my editor.
+`yapeco` (Yet Another Python Envvar Config Object\[[1](#extra)\]) is a tiny utility module to access `.env` (and otherwise environment-defined) config values in a structured way through a Python object. Created for the dual purpose of easily requiring/defaulting/casting environment variables at startup time for typical Python microservices & being able to autocomplete envvars in my editor.
 
 ## Features & Limitations
 
@@ -83,19 +83,19 @@ Config.feature_b_enabled # False
 
 ## Development
 
-Requires [poetry](https://python-poetry.org/).
+Requires [uv](https://docs.astral.sh/uv/).
 
 ```bash
-poetry install  # install dependencies
-poetry build  # build package
-poetry run pytest .  # run tests
-poetry run pyright .  # run type checks
+uv sync --dev  # install dependencies
+uv build  # build package
+uv run pytest .  # run tests
+uv run basedpyright .  # run type checks
 ```
 
 ## Extra
 
 Pedantic note:
 
-> As in Smalltalk, classes themselves are objects. 
+> As in Smalltalk, classes themselves are objects.
 >
 > —[The Literal Python Documentation](https://docs.python.org/3/tutorial/classes.html)

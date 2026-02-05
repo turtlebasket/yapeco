@@ -1,27 +1,42 @@
-[tool.poetry]
+[project]
 name = "yapeco"
 version = "0.1.5"
 description = "Yet Another Python Envvar Config Object"
-authors = ["Michael Lisano <mlisano@protonmail.com>"]
 readme = "README.md"
-license = "AGPL-3.0-or-later"
-repository = "https://github.com/turtlebasket/yapeco"
+requires-python = ">=3.9"
+license = { file = "LICENSE.txt" }
+authors = [{ name = "Michael Lisano", email = "mlisano@protonmail.com" }]
 keywords = ["python", "config", "environment", "dotenv", "variables"]
 classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
 ]
+dependencies = []
 
-[tool.poetry.dependencies]
-python = "^3.8"
+[project.urls]
+Repository = "https://github.com/turtlebasket/yapeco"
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^7"
-pyright = "^1.1.337"
+[dependency-groups]
+dev = [
+    "pytest>=7",
+    "pre-commit>=4.1.0",
+    "ruff>=0.9.4",
+    "basedpyright>=1.37.4",
+]
 
 [build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py38"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["yapeco"]
