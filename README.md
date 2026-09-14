@@ -42,10 +42,12 @@ VALUE2=8
 from enum import Enum, unique
 from yapeco import BaseEnvironment as Env
 
+
 @unique
 class MyValue(Enum):
     THING1 = "thing1"
     THING2 = "thing2"
+
 
 class Config(Env):
     api_key: str
@@ -62,23 +64,23 @@ class Config(Env):
 
 from config import Config
 
-Config.api_key # "abc123"
-Config.delay_msec # 18
-Config.feature_a_enabled # False
-Config.feature_a_flags # "-a -b -c"
-Config.feature_b_enabled # True
-Config.feature_b_flags # None
-Config.value # MyValue.THING1
-Config.value2 # 7
+Config.api_key  # "abc123"
+Config.delay_msec  # 18
+Config.feature_a_enabled  # False
+Config.feature_a_flags  # "-a -b -c"
+Config.feature_b_enabled  # True
+Config.feature_b_flags  # None
+Config.value  # MyValue.THING1
+Config.value2  # 7
 
 # ...
 # API_KEY=def456
 # FEATURE_B_ENABLED=false
 
-Config.refresh() # update environment
+Config.refresh()  # update environment
 
-Config.api_key # "def456"
-Config.feature_b_enabled # False
+Config.api_key  # "def456"
+Config.feature_b_enabled  # False
 ```
 
 ## Development
